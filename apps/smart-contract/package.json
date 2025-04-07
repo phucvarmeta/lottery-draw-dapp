@@ -1,0 +1,40 @@
+{
+  "name": "hardhat-project",
+  "version": "1.0.0",
+  "description": "PQA Labs project",
+  "main": "scripts/deploy.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test test/Lottery.test.js",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network bsctestnet",
+    "upgrade:testnet": "hardhat run scripts/upgrade.js --network bsctestnet",
+    "verify:testnet": "hardhat run scripts/verify.js --network bsctestnet",
+    "coverage": "hardhat coverage --testfiles test/Lottery.test.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.1",
+    "@nomicfoundation/hardhat-network-helpers": "1.0.10",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomicfoundation/hardhat-verify": "^1.0.4",
+    "@openzeppelin/contracts": "^5.2.0",
+    "@openzeppelin/contracts-upgradeable": "^5.2.0",
+    "@openzeppelin/hardhat-upgrades": "^3.9.0",
+    "chai": "4.3.7",
+    "dotenv": "^16.1.4",
+    "ethers": "^6.13.5",
+    "hardhat": "^2.22.15",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-docgen": "^1.3.0",
+    "hardhat-gas-reporter": "^2.2.2",
+    "hardhat-log-remover": "^2.1.1",
+    "hardhat-tracer": "^3.1.0",
+    "keccak256": "^1.0.6",
+    "mocha": "^11.1.0",
+    "solidity-coverage": "^0.8.14"
+  },
+  "dependencies": {
+    "mocha-junit-reporter": "^2.2.1",
+    "mocha-multi-reporters": "^1.5.1",
+    "solidity-bits": "^0.4.0"
+  }
+}

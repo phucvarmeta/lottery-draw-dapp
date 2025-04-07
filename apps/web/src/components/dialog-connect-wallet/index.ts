@@ -1,0 +1,1 @@
+export { DialogConnectWallet } from './DialogConnectWallet';

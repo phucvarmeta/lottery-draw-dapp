@@ -1,0 +1,23 @@
+{
+  "name": "lottery-dapp",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "build:game": "turbo --filter=lottery-fe build",
+    "build:api": "turbo --filter=lottery-api build",
+    "dev": "turbo dev",
+    "dev:game": "turbo --filter=lottery-fe dev",
+    "dev:api": "turbo --filter=lottery-api dev",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "turbo": "^2.0.14",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@8.15.6",
+  "engines": {
+    "node": ">=20"
+  }
+}

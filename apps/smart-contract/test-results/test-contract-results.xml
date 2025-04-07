@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="0.536" tests="17" failures="2">
+  <testsuite name="Root Suite" timestamp="2025-04-07T01:34:41" tests="0" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="DLottery" timestamp="2025-04-07T01:34:41" tests="0" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Deployment" timestamp="2025-04-07T01:34:41" tests="2" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.055" failures="0">
+    <testcase name="DLottery Deployment Should set the right owner" time="0.006" classname="Should set the right owner">
+    </testcase>
+    <testcase name="DLottery Deployment Should create the first draw" time="0.002" classname="Should create the first draw">
+    </testcase>
+  </testsuite>
+  <testsuite name="Ticket Purchase" timestamp="2025-04-07T01:34:41" tests="4" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.095" failures="0">
+    <testcase name="DLottery Ticket Purchase Should allow a user to buy a ticket" time="0.010" classname="Should allow a user to buy a ticket">
+    </testcase>
+    <testcase name="DLottery Ticket Purchase Should not allow a user to buy more than one ticket in a draw" time="0.017" classname="Should not allow a user to buy more than one ticket in a draw">
+    </testcase>
+    <testcase name="DLottery Ticket Purchase Should not allow incorrect payment" time="0.002" classname="Should not allow incorrect payment">
+    </testcase>
+    <testcase name="DLottery Ticket Purchase Should not allow more than MAX_TICKETS to be sold" time="0.029" classname="Should not allow more than MAX_TICKETS to be sold">
+    </testcase>
+  </testsuite>
+  <testsuite name="Draw" timestamp="2025-04-07T01:34:41" tests="3" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.110" failures="0">
+    <testcase name="DLottery Draw Should not allow draw before all tickets are sold" time="0.003" classname="Should not allow draw before all tickets are sold">
+    </testcase>
+    <testcase name="DLottery Draw Should perform draw and emit DrawCompleted event" time="0.003" classname="Should perform draw and emit DrawCompleted event">
+    </testcase>
+    <testcase name="DLottery Draw Should not allow multiple draws for the same lottery" time="0.003" classname="Should not allow multiple draws for the same lottery">
+    </testcase>
+  </testsuite>
+  <testsuite name="Prize Claim" timestamp="2025-04-07T01:34:41" tests="2" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.074" failures="0">
+    <testcase name="DLottery Prize Claim Should only allow the winner to claim the prize" time="0.000" classname="Should only allow the winner to claim the prize">
+    </testcase>
+    <testcase name="DLottery Prize Claim Should not allow claiming prize twice" time="0.005" classname="Should not allow claiming prize twice">
+    </testcase>
+  </testsuite>
+  <testsuite name="New Draw" timestamp="2025-04-07T01:34:41" tests="2" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.098" failures="1">
+    <testcase name="DLottery New Draw Should create a new draw and reset ticket data" time="0.029" classname="Should create a new draw and reset ticket data">
+      <failure message="expect.anything is not a function" type="TypeError"><![CDATA[TypeError: expect.anything is not a function
+    at Context.<anonymous> (test/Lottery.test.js:216:54)]]></failure>
+    </testcase>
+    <testcase name="DLottery New Draw Should accumulate prize if no winner in previous draw" time="0.051" classname="Should accumulate prize if no winner in previous draw">
+    </testcase>
+  </testsuite>
+  <testsuite name="Emergency Functions" timestamp="2025-04-07T01:34:42" tests="2" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.046" failures="0">
+    <testcase name="DLottery Emergency Functions Should allow owner to withdraw funds in emergency" time="0.029" classname="Should allow owner to withdraw funds in emergency">
+    </testcase>
+    <testcase name="DLottery Emergency Functions Should not allow non-owner to withdraw funds" time="0.001" classname="Should not allow non-owner to withdraw funds">
+    </testcase>
+  </testsuite>
+  <testsuite name="View Functions" timestamp="2025-04-07T01:34:42" tests="2" file="/Users/phuctran/Work/varmeta/pqa-labs-test/apps/smart-contract/test/Lottery.test.js" time="0.056" failures="1">
+    <testcase name="DLottery View Functions Should correctly return current draw details" time="0.006" classname="Should correctly return current draw details">
+    </testcase>
+    <testcase name="DLottery View Functions Should correctly return ticket info" time="0.007" classname="Should correctly return ticket info">
+      <failure message="expected true to equal false" type="AssertionError"><![CDATA[AssertionError: expected true to equal false
+    at Context.<anonymous> (test/Lottery.test.js:347:30)
+
+      + expected - actual
+
+      -true
+      +false
+      ]]></failure>
+    </testcase>
+  </testsuite>
+</testsuites>
