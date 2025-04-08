@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useWaitForTransactionReceipt } from 'wagmi';
 
-export const usePerformDraw = () => {
+export const useClaimPrize = () => {
   const queryClient = useQueryClient();
   const setTxHash = useCommonStore.use.setTx();
 
@@ -13,8 +13,8 @@ export const usePerformDraw = () => {
     data,
     writeContract,
     isPending,
-    failureReason: performDrawError,
-    reset: resetPerformDraw,
+    failureReason: claimPrizeError,
+    reset: resetClaimPrize,
   } = useCallWriteContract();
 
   const { isSuccess: txSuccess, isFetching: txFetching } = useWaitForTransactionReceipt({
@@ -23,20 +23,20 @@ export const usePerformDraw = () => {
   });
 
   useEffect(() => {
-    if (!performDrawError) return;
-    handleSmcError(performDrawError);
-  }, [performDrawError]);
+    if (!claimPrizeError) return;
+    handleSmcError(claimPrizeError);
+  }, [claimPrizeError]);
 
   useEffect(() => {
     if (!txSuccess || !data) return;
 
     setTxHash(data);
     queryClient.invalidateQueries({ queryKey: ['current-draw'] });
-    resetPerformDraw();
-  }, [data, txSuccess, queryClient, resetPerformDraw, setTxHash]);
+    resetClaimPrize();
+  }, [data, txSuccess, queryClient, resetClaimPrize, setTxHash]);
 
   return {
-    performDraw: () => writeContract('performDraw', []),
-    isPerformingDraw: isPending || txFetching,
+    claimPrize: () => writeContract('claimPrize', []),
+    isClaimingPrize: isPending || txFetching,
   };
 };

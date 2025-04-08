@@ -1,18 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+
 /**
  * @title DLottery
  * @dev A decentralized lottery application where users can buy tickets and win prizes
+ * Uses OpenZeppelin's upgradeable contracts pattern
  */
-contract DLottery {
+contract DLottery is
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     // Constants
     uint256 public constant TICKET_PRICE = 0.001 ether;
     uint8 public constant MAX_TICKETS = 5;
     uint8 public constant MAX_TICKET_NUMBER = 10;
 
     // State variables
-    address public owner;
     uint256 public currentDrawId;
     uint256 public accumulatedPrize;
 
@@ -47,17 +55,19 @@ contract DLottery {
     );
     event PrizeClaimed(uint256 indexed drawId, address winner, uint256 amount);
 
-    // Modifiers
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this function");
-        _;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /**
-     * @dev Constructor sets the owner and creates the first draw
+     * @dev Initializer function (replaces constructor for upgradeable contracts)
+     * Sets the owner and creates the first draw
      */
-    constructor() {
-        owner = msg.sender;
+    function initialize(address initialOwner) public initializer {
+        __Ownable_init(initialOwner);
+        __ReentrancyGuard_init();
+        currentDrawId = 0; // Will be incremented to 1 in createNewDraw
         createNewDraw();
     }
 
@@ -65,7 +75,7 @@ contract DLottery {
      * @dev Creates a new lottery draw
      * @return drawId of the newly created draw
      */
-    function createNewDraw() public returns (uint256) {
+    function createNewDraw() public onlyOwner returns (uint256) {
         currentDrawId++;
 
         Draw storage newDraw = draws[currentDrawId];
@@ -87,6 +97,7 @@ contract DLottery {
     function buyTicket()
         public
         payable
+        nonReentrant
         returns (uint256 drawId, uint8 ticketNumber)
     {
         Draw storage currentDraw = draws[currentDrawId];
@@ -127,6 +138,7 @@ contract DLottery {
      */
     function performDraw()
         public
+        onlyOwner
         returns (uint256 drawId, uint8 winningTicket, address winner)
     {
         Draw storage currentDraw = draws[currentDrawId];
@@ -168,7 +180,7 @@ contract DLottery {
      * @dev Allows the winner to claim their prize
      * @return amount The amount claimed
      */
-    function claimPrize() public returns (uint256 amount) {
+    function claimPrize() public nonReentrant returns (uint256 amount) {
         Draw storage currentDraw = draws[currentDrawId];
 
         require(currentDraw.completed, "Draw is not completed yet");
@@ -367,10 +379,10 @@ contract DLottery {
      * @dev Withdraws contract funds in case of emergency (only owner)
      * @param amount The amount to withdraw
      */
-    function emergencyWithdraw(uint256 amount) public onlyOwner {
+    function emergencyWithdraw(uint256 amount) public onlyOwner nonReentrant {
         require(amount <= address(this).balance, "Insufficient balance");
 
-        (bool success, ) = payable(owner).call{value: amount}("");
+        (bool success, ) = payable(owner()).call{value: amount}("");
         require(success, "Transfer failed");
     }
 

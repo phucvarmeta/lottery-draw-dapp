@@ -11,17 +11,17 @@ import LotteryWheel from '@/components/lottery-wheel';
 import WinnerModal from '@/components/winner-modal';
 import { ERC721Abi } from '@/contracts/abi';
 import { useAccount, useConnect, useDisconnect, useConnectors, Connector } from 'wagmi';
+import { useStartNewDraw } from './hooks/useCreateNewDraw';
 
 // Contract address would be set after deployment
 const CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export default function LandingPage() {
   const { connectors, connect, isPending, variables, isError, failureReason, status } = useConnect();
-  console.log('🚀 ~ LandingPage ~ connectors:', connectors);
   const { disconnect } = useDisconnect();
   const account = useAccount();
-  console.log('🚀 ~ LandingPage ~ account:', account);
   const [isClient, setIsClient] = useState(false);
+  const { startNewDraw, isPendingStartNewDraw } = useStartNewDraw();
 
   useEffect(() => {
     setIsClient(true);
@@ -61,44 +61,23 @@ export default function LandingPage() {
     // }
   };
 
-  const connectWallet = async () => {
-    // if (!provider) return;
-    // try {
-    //   setLoading(true);
-    //   setError('');
-    //   const accounts = await window.ethereum.request({
-    //     method: 'eth_requestAccounts',
-    //   });
-    //   if (accounts.length > 0) {
-    //     setAccount(accounts[0]);
-    //     const web3Signer = provider.getSigner();
-    //     setSigner(web3Signer);
-    //   }
-    // } catch (err) {
-    //   console.error('Failed to connect wallet:', err);
-    //   setError('Failed to connect wallet');
-    // } finally {
-    //   setLoading(false);
-    // }
-  };
-
-  const startNewDraw = async () => {
-    // if (!contract || !signer) return;
-    // try {
-    //   setLoading(true);
-    //   setError('');
-    //   const contractWithSigner = contract.connect(signer);
-    //   const tx = await contractWithSigner.startNewDraw();
-    //   await tx.wait();
-    //   await refreshDrawData();
-    //   disconnectWallet();
-    // } catch (err: any) {
-    //   console.error('Failed to start new draw:', err);
-    //   setError(err.message || 'Failed to start new draw');
-    // } finally {
-    //   setLoading(false);
-    // }
-  };
+  // const startNewDraw = async () => {
+  // if (!contract || !signer) return;
+  // try {
+  //   setLoading(true);
+  //   setError('');
+  //   const contractWithSigner = contract.connect(signer);
+  //   const tx = await contractWithSigner.startNewDraw();
+  //   await tx.wait();
+  //   await refreshDrawData();
+  //   disconnectWallet();
+  // } catch (err: any) {
+  //   console.error('Failed to start new draw:', err);
+  //   setError(err.message || 'Failed to start new draw');
+  // } finally {
+  //   setLoading(false);
+  // }
+  // };
 
   const buyTicket = async () => {
     // if (!contract || !signer) return;

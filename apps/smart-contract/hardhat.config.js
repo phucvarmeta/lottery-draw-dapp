@@ -26,8 +26,38 @@ module.exports = {
         mnemonic,
       },
     },
+    goerli: {
+      url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: {
+        mnemonic,
+      },
+    },
     mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: {
+        mnemonic,
+      },
+    },
+    amoy: {
+      url: 'https://rpc-amoy.polygon.technology',
+      accounts: {
+        mnemonic,
+      },
+    },
+    bsctestnet: {
+      url: `https://data-seed-prebsc-1-s1.bnbchain.org:8545`,
+      accounts: {
+        mnemonic,
+      },
+    },
+    bscmainnet: {
+      url: `https://bsc-dataseed4.binance.org/`,
+      accounts: {
+        mnemonic,
+      },
+    },
+    ftmtestnet: {
+      url: `https://rpc.testnet.fantom.network/`,
       accounts: {
         mnemonic,
       },
@@ -35,8 +65,14 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
+      goerli: `${process.env.ETHERSCAN_KEY}`,
       sepolia: `${process.env.ETHERSCAN_KEY}`,
+      polygonMumbai: `${process.env.POLYGONSCAN_KEY}`,
       mainnet: `${process.env.ETHERSCAN_KEY}`,
+      bscTestnet: `${process.env.BSCSCAN_KEY}`,
+      bsc: `${process.env.BSCSCAN_KEY}`,
+      polygonMainnet: `${process.env.POLYGONSCAN_KEY}`,
+      ftmTestnet: `${process.env.FANTOM_KEY}`,
     },
   },
   solidity: {

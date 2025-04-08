@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useWaitForTransactionReceipt } from 'wagmi';
 
-export const useStartNewDraw = (value?: bigint) => {
+export const createNewDraw = (value?: bigint) => {
   const queryClient = useQueryClient();
 
   // const setTargetInView = useIntersectionStore.use.setTargetInView();
@@ -34,12 +34,12 @@ export const useStartNewDraw = (value?: bigint) => {
     if (!mintSuccess || !data) return;
 
     setTxHash(data);
-    queryClient.refetchQueries({ queryKey: 'current-draw' });
+    // queryClient.refetchQueries({ queryKey: 'current-draw' });
     resetMint();
   }, [data, mintSuccess, queryClient, resetMint, setTxHash]);
 
   return {
-    startNewDraw: () => writeContract('startNewDraw', []),
+    createNewDraw: () => writeContract('createNewDraw', []),
     isPendingStartNewDraw: isPending || mintReceiptFetching,
   };
 };

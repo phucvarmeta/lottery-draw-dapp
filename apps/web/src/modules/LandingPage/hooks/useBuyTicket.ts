@@ -4,8 +4,9 @@ import { useCommonStore } from '@/stores/commonStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useWaitForTransactionReceipt } from 'wagmi';
+import { parseEther } from 'viem';
 
-export const usePerformDraw = () => {
+export const useBuyTicket = () => {
   const queryClient = useQueryClient();
   const setTxHash = useCommonStore.use.setTx();
 
@@ -13,8 +14,8 @@ export const usePerformDraw = () => {
     data,
     writeContract,
     isPending,
-    failureReason: performDrawError,
-    reset: resetPerformDraw,
+    failureReason: buyTicketError,
+    reset: resetBuyTicket,
   } = useCallWriteContract();
 
   const { isSuccess: txSuccess, isFetching: txFetching } = useWaitForTransactionReceipt({
@@ -23,20 +24,20 @@ export const usePerformDraw = () => {
   });
 
   useEffect(() => {
-    if (!performDrawError) return;
-    handleSmcError(performDrawError);
-  }, [performDrawError]);
+    if (!buyTicketError) return;
+    handleSmcError(buyTicketError);
+  }, [buyTicketError]);
 
   useEffect(() => {
     if (!txSuccess || !data) return;
 
     setTxHash(data);
     queryClient.invalidateQueries({ queryKey: ['current-draw'] });
-    resetPerformDraw();
-  }, [data, txSuccess, queryClient, resetPerformDraw, setTxHash]);
+    resetBuyTicket();
+  }, [data, txSuccess, queryClient, resetBuyTicket, setTxHash]);
 
   return {
-    performDraw: () => writeContract('performDraw', []),
-    isPerformingDraw: isPending || txFetching,
+    buyTicket: () => writeContract('buyTicket', [parseEther('0.001')]),
+    isBuyingTicket: isPending || txFetching,
   };
 };

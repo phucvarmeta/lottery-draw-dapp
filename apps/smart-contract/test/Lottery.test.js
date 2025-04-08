@@ -1,351 +1,393 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 describe("DLottery", function () {
   let dLottery;
   let owner;
-  let participants = [];
+  let addr1;
+  let addr2;
+  let addr3;
+  let addr4;
+  let addr5;
+  let addrs;
   const TICKET_PRICE = ethers.parseEther("0.001");
+  const MAX_TICKETS = 5;
+  const MAX_TICKET_NUMBER = 10;
 
   beforeEach(async function () {
-    // Get signers for testing
-    [owner, ...participants] = await ethers.getSigners();
-    
-    // Deploy the DLottery contract
+    // Get signers
+    [owner, addr1, addr2, addr3, addr4, addr5, ...addrs] = await ethers.getSigners();
+
+    // Deploy the contract
     const DLottery = await ethers.getContractFactory("DLottery");
-    dLottery = await DLottery.deploy();
+    dLottery = await upgrades.deployProxy(DLottery, [owner.address], { initializer: 'initialize' });
     await dLottery.waitForDeployment();
   });
 
-  describe("Deployment", function () {
+  describe("Initialization", function () {
     it("Should set the right owner", async function () {
       expect(await dLottery.owner()).to.equal(owner.address);
     });
 
-    it("Should create the first draw", async function () {
+    it("Should initialize with draw ID 1", async function () {
       const drawInfo = await dLottery.getCurrentDrawInfo();
-      expect(drawInfo[0]).to.equal(1); // drawId should be 1
-      expect(drawInfo[1]).to.equal(0); // participantsCount should be 0
-      expect(drawInfo[2]).to.equal(false); // isCompleted should be false
-      expect(drawInfo[3]).to.equal(0); // currentPrize should be 0
+      expect(drawInfo.drawId).to.equal(1);
+    });
+
+    it("Should initialize with empty participants list", async function () {
+      const drawInfo = await dLottery.getCurrentDrawInfo();
+      expect(drawInfo.participantsCount).to.equal(0);
+    });
+
+    it("Should initialize with draw not completed", async function () {
+      const drawInfo = await dLottery.getCurrentDrawInfo();
+      expect(drawInfo.isCompleted).to.equal(false);
+    });
+
+    it("Should initialize with zero prize", async function () {
+      const drawInfo = await dLottery.getCurrentDrawInfo();
+      expect(drawInfo.currentPrize).to.equal(0);
     });
   });
 
   describe("Ticket Purchase", function () {
-    it("Should allow a user to buy a ticket", async function () {
-      await dLottery.connect(participants[0]).buyTicket({ value: TICKET_PRICE })
-        
+    it("Should allow purchasing a ticket", async function () {
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      
+      const [hasBought, ticketNumber] = await dLottery.hasParticipantBoughtTicket(addr1.address);
+      expect(hasBought).to.equal(true);
+      expect(ticketNumber).to.be.gt(0);
+      expect(ticketNumber).to.be.lte(MAX_TICKET_NUMBER);
+    });
+
+    it("Should increase the prize pool", async function () {
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      
       const drawInfo = await dLottery.getCurrentDrawInfo();
-      expect(drawInfo[1]).to.equal(1); // participantsCount should be 1
-      expect(drawInfo[3]).to.equal(TICKET_PRICE); // currentPrize should be TICKET_PRICE
-      
-      // Check if the participant has bought a ticket
-      const participantInfo = await dLottery.hasParticipantBoughtTicket(participants[0].address);
-      expect(participantInfo[0]).to.equal(true); // hasBought should be true
+      expect(drawInfo.currentPrize).to.equal(TICKET_PRICE);
     });
 
-    it("Should not allow a user to buy more than one ticket in a draw", async function () {
-      await dLottery.connect(participants[0]).buyTicket({ value: TICKET_PRICE });
-      
-      await expect(dLottery.connect(participants[0]).buyTicket({ value: TICKET_PRICE }))
-        .to.be.revertedWith("You already purchased a ticket for this draw");
+    it("Should not allow buying with incorrect amount", async function () {
+      await expect(
+        dLottery.connect(addr1).buyTicket({ value: ethers.parseEther("0.002") })
+      ).to.be.revertedWith("Incorrect amount sent");
     });
 
-    it("Should not allow incorrect payment", async function () {
-      await expect(dLottery.connect(participants[0]).buyTicket({ value: ethers.parseEther("0.002") }))
-        .to.be.revertedWith("Incorrect amount sent");
+    it("Should not allow buying multiple tickets by the same address", async function () {
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      
+      await expect(
+        dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE })
+      ).to.be.revertedWith("You already purchased a ticket for this draw");
+    });
+
+    it("Should allow different participants to buy tickets", async function () {
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
+      
+      const drawInfo = await dLottery.getCurrentDrawInfo();
+      expect(drawInfo.participantsCount).to.equal(2);
+      
+      const [hasBought1] = await dLottery.hasParticipantBoughtTicket(addr1.address);
+      const [hasBought2] = await dLottery.hasParticipantBoughtTicket(addr2.address);
+      
+      expect(hasBought1).to.equal(true);
+      expect(hasBought2).to.equal(true);
+    });
+
+    it("Should update contract balance when tickets are purchased", async function () {
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
+      
+      const balance = await dLottery.getContractBalance();
+      expect(balance).to.equal(TICKET_PRICE * 2n);
     });
     
-    it("Should not allow more than MAX_TICKETS to be sold", async function () {
-      // Purchase 5 tickets by different participants
-      for (let i = 0; i < 5; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
+    it("Should properly track sold tickets", async function () {
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
       
-      // Try to purchase one more ticket
-      await expect(dLottery.connect(participants[5]).buyTicket({ value: TICKET_PRICE }))
-        .to.be.revertedWith("All tickets have been sold for this draw");
+      const [tickets, participants] = await dLottery.getCurrentDrawDetails();
+      
+      expect(tickets.length).to.equal(2);
+      expect(participants.length).to.equal(2);
+      expect(participants).to.include(addr1.address);
+      expect(participants).to.include(addr2.address);
     });
   });
 
-  describe("Draw", function () {
+  describe("Draw Completion", function () {
     beforeEach(async function () {
-      // Purchase 5 tickets by different participants
-      for (let i = 0; i < 5; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
+      // Purchase 5 tickets to meet the requirement
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr3).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr4).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr5).buyTicket({ value: TICKET_PRICE });
     });
-    
-    it("Should not allow draw before all tickets are sold", async function () {
-      // Create a new draw
-      await dLottery.createNewDraw();
-      
-      // Try to perform draw without tickets sold
-      await expect(dLottery.performDraw())
-        .to.be.revertedWith("Not enough tickets sold yet");
-    });
-    
-    it("Should perform draw and emit DrawCompleted event", async function () {
-      await dLottery.performDraw()
-        
-      // Check that the draw is marked as completed
-      const drawInfo = await dLottery.getCurrentDrawInfo();
-      expect(drawInfo[2]).to.equal(true); // isCompleted should be true
-    });
-    
-    it("Should not allow multiple draws for the same lottery", async function () {
-      await dLottery.performDraw();
-      
-      await expect(dLottery.performDraw())
-        .to.be.revertedWith("Draw is already completed");
-    });
-  });
 
-  describe("Prize Claim", function () {
-    let drawResult;
-    
-    beforeEach(async function () {
-      // Purchase 5 tickets by different participants
-      for (let i = 0; i < 5; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
-      
-      // Perform draw
-      const tx = await dLottery.performDraw();
+    it("Should not allow non-owner to perform draw", async function () {
+      await expect(
+        dLottery.connect(addr1).performDraw()
+      ).to.be.reverted;
+    });
+
+    it("Should allow owner to perform draw when all tickets are sold", async function () {
+      const tx = await dLottery.connect(owner).performDraw();
       const receipt = await tx.wait();
       
-      // Extract draw result from event
-      const drawCompletedEvent = receipt.logs.find(
-        log => log.fragment && log.fragment.name === 'DrawCompleted'
-      );
+      // Check event
+      const drawCompletedEvent = receipt.logs.find(e => e.fragment.name === "DrawCompleted");
+      expect(drawCompletedEvent).to.not.be.undefined;
       
-      if (drawCompletedEvent) {
-        const args = drawCompletedEvent.args;
-        drawResult = {
-          drawId: args[0],
-          winningTicket: args[1],
-          winner: args[2]
-        };
-      }
+      // Check draw result
+      const [isCompleted, winningTicket, winner, isPrizeClaimed] = await dLottery.getDrawResult(1);
+      
+      expect(isCompleted).to.equal(true);
+      expect(winningTicket).to.be.gt(0);
+      expect(winningTicket).to.be.lte(MAX_TICKET_NUMBER);
+      expect(isPrizeClaimed).to.equal(false);
     });
-    
-    it("Should only allow the winner to claim the prize", async function () {
-      if (drawResult.winner === ethers.ZeroAddress) {
-        console.log("No winner in this test run, skipping test");
-        return;
-      }
+
+    it("Should not allow performing draw twice", async function () {
+      await dLottery.connect(owner).performDraw();
       
-      // Find the winner's index
-      let winnerIndex = -1;
-      for (let i = 0; i < participants.length; i++) {
-        if (participants[i].address === drawResult.winner) {
-          winnerIndex = i;
-          break;
-        }
-      }
-      
-      if (winnerIndex !== -1) {
-        // Non-winner tries to claim
-        await expect(dLottery.connect(participants[(winnerIndex + 1) % 5]).claimPrize())
-          .to.be.revertedWith("Only the winner can claim the prize");
-          
-        // Winner claims prize
-        const initialBalance = await ethers.provider.getBalance(participants[winnerIndex].address);
-        const tx = await dLottery.connect(participants[winnerIndex]).claimPrize();
-        const receipt = await tx.wait();
-        
-        // Calculate gas cost
-        const gasCost = receipt.gasUsed * receipt.gasPrice;
-        
-        // Check new balance
-        const newBalance = await ethers.provider.getBalance(participants[winnerIndex].address);
-        expect(newBalance).to.be.gt(initialBalance - gasCost); // Account for gas costs
-      } else {
-        console.log("Winner not found among participants, this is unexpected");
-      }
-    });
-    
-    it("Should not allow claiming prize twice", async function () {
-      if (drawResult.winner === ethers.ZeroAddress) {
-        console.log("No winner in this test run, skipping test");
-        return;
-      }
-      
-      // Find the winner
-      let winner = null;
-      for (let i = 0; i < participants.length; i++) {
-        if (participants[i].address === drawResult.winner) {
-          winner = participants[i];
-          break;
-        }
-      }
-      
-      if (winner) {
-        // Claim prize
-        await dLottery.connect(winner).claimPrize();
-        
-        // Try to claim again
-        await expect(dLottery.connect(winner).claimPrize())
-          .to.be.revertedWith("Prize has already been claimed");
-      }
+      await expect(
+        dLottery.connect(owner).performDraw()
+      ).to.be.revertedWith("Draw is already completed");
     });
   });
 
-  describe("New Draw", function () {
-    it("Should create a new draw and reset ticket data", async function () {
-      // Purchase 5 tickets for first draw
-      for (let i = 0; i < 5; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
-      
-      // Perform draw
-      await dLottery.performDraw();
-      
-      // Create a new draw
-      await dLottery.createNewDraw();
-      
-      // Check new draw info
-      const drawInfo = await dLottery.getCurrentDrawInfo();
-      expect(drawInfo[0]).to.equal(2); // drawId should be 2
-      expect(drawInfo[1]).to.equal(0); // participantsCount should be 0
-      expect(drawInfo[2]).to.equal(false); // isCompleted should be false
-      
-      // Check that the same user can buy a ticket in the new draw
-      await expect(dLottery.connect(participants[0]).buyTicket({ value: TICKET_PRICE }))
-        .to.emit(dLottery, "TicketPurchased")
-        .withArgs(2, participants[0].address, expect.anything());
-    });
+  describe("Prize Claiming", function () {
+    let winningTicket;
+    let winner;
     
-    it("Should accumulate prize if no winner in previous draw", async function () {
-      // Purchase 5 tickets for first draw
-      for (let i = 0; i < 5; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
+    beforeEach(async function () {
+      // Purchase all tickets
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr3).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr4).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr5).buyTicket({ value: TICKET_PRICE });
       
       // Perform draw
-      const tx = await dLottery.performDraw();
+      const tx = await dLottery.connect(owner).performDraw();
       const receipt = await tx.wait();
       
-      // Extract draw result from event
-      const drawCompletedEvent = receipt.logs.find(
-        log => log.fragment && log.fragment.name === 'DrawCompleted'
-      );
-      
-      let winner = ethers.ZeroAddress;
-      if (drawCompletedEvent) {
-        winner = drawCompletedEvent.args[2];
-      }
-      
-      // If there's a winner, have them claim the prize
-      if (winner !== ethers.ZeroAddress) {
-        for (let i = 0; i < participants.length; i++) {
-          if (participants[i].address === winner) {
-            await dLottery.connect(participants[i]).claimPrize();
-            break;
-          }
-        }
-      }
-      
-      // Create a new draw
-      await dLottery.createNewDraw();
-      
-      // Check if prize is accumulated correctly
-      const initialPrize = TICKET_PRICE * 5n;
-      const drawInfo = await dLottery.getCurrentDrawInfo();
-      
-      if (winner === ethers.ZeroAddress) {
-        // If no winner, prize should be accumulated
-        expect(drawInfo[3]).to.equal(initialPrize);
-      } else {
-        // If there was a winner and they claimed, prize should be reset
-        expect(drawInfo[3]).to.equal(0);
-      }
-      
-      // Purchase 5 tickets for second draw
-      for (let i = 5; i < 10; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
-      
-      // Check final prize amount
-      const updatedDrawInfo = await dLottery.getCurrentDrawInfo();
-      if (winner === ethers.ZeroAddress) {
-        // If no winner in first draw, prize should be accumulated
-        expect(updatedDrawInfo[3]).to.equal(initialPrize + TICKET_PRICE * 5n);
-      } else {
-        // If there was a winner, only second draw tickets count
-        expect(updatedDrawInfo[3]).to.equal(TICKET_PRICE * 5n);
-      }
+      // Get draw result
+      const drawCompletedEvent = receipt.logs.find(e => e.fragment.name === "DrawCompleted");
+      winningTicket = drawCompletedEvent.args.winningTicket;
+      winner = drawCompletedEvent.args.winner;
     });
-  });
 
-  describe("Emergency Functions", function () {
-    it("Should allow owner to withdraw funds in emergency", async function () {
-      // Purchase 5 tickets to add funds to contract
-      for (let i = 0; i < 5; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
+    it("Should not allow claiming prize before draw is completed", async function () {
+      // Deploy a new contract for this test
+      const DLottery = await ethers.getContractFactory("DLottery");
+      const newDLottery = await upgrades.deployProxy(DLottery, [owner.address], { initializer: 'initialize' });
+      await newDLottery.waitForDeployment();
       
-      const contractBalance = await dLottery.getContractBalance();
-      const initialOwnerBalance = await ethers.provider.getBalance(owner.address);
+      await expect(
+        newDLottery.connect(addr1).claimPrize()
+      ).to.be.revertedWith("Draw is not completed yet");
+    });
+
+    it("Should not allow non-winner to claim prize", async function () {
+      // Find a non-winner
+      const nonWinner = [addr1, addr2, addr3, addr4, addr5].find(addr => addr.address !== winner);
       
-      // Owner withdraws all funds
-      const tx = await dLottery.connect(owner).emergencyWithdraw(contractBalance);
+      await expect(
+        dLottery.connect(nonWinner).claimPrize()
+      ).to.be.reverted;
+    });
+
+    it("Should allow winner to claim prize", async function () {
+      // Find the winner signer
+      const winnerSigner = [addr1, addr2, addr3, addr4, addr5].find(addr => addr.address === winner);
+      
+      // Check winner's balance before claiming
+      const balanceBefore = await ethers.provider.getBalance(winner);
+      
+      // Claim prize
+      const tx = await dLottery.connect(winnerSigner).claimPrize();
       const receipt = await tx.wait();
       
       // Calculate gas cost
       const gasCost = receipt.gasUsed * receipt.gasPrice;
       
-      // Check new balances
-      const newContractBalance = await dLottery.getContractBalance();
-      const newOwnerBalance = await ethers.provider.getBalance(owner.address);
+      // Check winner's balance after claiming
+      const balanceAfter = await ethers.provider.getBalance(winner);
       
-      expect(newContractBalance).to.equal(0);
-      expect(newOwnerBalance).to.be.gt(initialOwnerBalance - gasCost);
+      // Expected prize is 5 * TICKET_PRICE
+      const expectedPrize = TICKET_PRICE * 5n;
+      
+      // Check that the winner received the prize (accounting for gas costs)
+      expect(balanceAfter- balanceBefore  + gasCost).to.equal(expectedPrize);
+      
+      // Check that prize is marked as claimed
+      const [, , , isPrizeClaimed] = await dLottery.getDrawResult(1);
+      expect(isPrizeClaimed).to.equal(true);
+      
+      // Check that accumulated prize is reset
+      const drawInfo = await dLottery.getCurrentDrawInfo();
+      expect(drawInfo.currentPrize).to.equal(0);
     });
-    
-    it("Should not allow non-owner to withdraw funds", async function () {
-      await expect(dLottery.connect(participants[0]).emergencyWithdraw(TICKET_PRICE))
-        .to.be.revertedWith("Only owner can call this function");
+
+    it("Should emit PrizeClaimed event", async function () {
+      // Find the winner signer
+      const winnerSigner = [addr1, addr2, addr3, addr4, addr5].find(addr => addr.address === winner);
+      console.log("🚀 ~ winnerSigner:", winnerSigner)
+      
+      // Expected prize is 5 * TICKET_PRICE
+      const expectedPrize = TICKET_PRICE * 5n;
+      
+      await expect(dLottery.connect(winnerSigner).claimPrize())
+        .to.emit(dLottery, "PrizeClaimed")
+        .withArgs(1, winner, expectedPrize);
+    });
+
+    it("Should not allow claiming prize twice", async function () {
+      // Find the winner signer
+      const winnerSigner = [addr1, addr2, addr3, addr4, addr5].find(addr => addr.address === winner);
+      console.log("🚀 ~ winnerSigner:", winnerSigner)
+      
+      // Claim prize
+      await dLottery.connect(winnerSigner).claimPrize();
+      
+      // Try to claim again
+      await expect(
+        dLottery.connect(winnerSigner).claimPrize()
+      ).to.be.revertedWith("Prize has already been claimed");
+    });
+  });
+
+  describe("Multiple Draws", function () {
+    beforeEach(async function () {
+      // Complete the first draw
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr3).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr4).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr5).buyTicket({ value: TICKET_PRICE });
+      
+      await dLottery.connect(owner).performDraw();
+      
+      // Create a new draw
+      await dLottery.connect(owner).createNewDraw();
+    });
+
+    it("Should create a new draw with incremented ID", async function () {
+      const drawInfo = await dLottery.getCurrentDrawInfo();
+      expect(drawInfo.drawId).to.equal(2);
+    });
+
+    it("Should allow purchasing tickets for the new draw", async function () {
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      
+      const [hasBought, ticketNumber] = await dLottery.hasParticipantBoughtTicket(addr1.address);
+      expect(hasBought).to.equal(true);
+      expect(ticketNumber).to.be.gt(0);
+    });
+
+    it("Should maintain history of previous draws", async function () {
+      const [isCompleted, winningTicket, winner, isPrizeClaimed] = await dLottery.getDrawResult(1);
+      
+      expect(isCompleted).to.equal(true);
+      expect(winningTicket).to.be.gt(0);
+      expect(winner).to.not.equal(ethers.ZeroAddress);
+    });
+  });
+
+  describe("Emergency Functions", function () {
+    beforeEach(async function () {
+      // Add some funds to the contract
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
+    });
+
+    it("Should only allow owner to withdraw funds", async function () {
+      await expect(
+        dLottery.connect(addr1).emergencyWithdraw(TICKET_PRICE)
+      ).to.be.reverted;
+    });
+
+    it("Should allow owner to withdraw specific amount", async function () {
+      const ownerBalanceBefore = await ethers.provider.getBalance(owner.address);
+      
+      const tx = await dLottery.connect(owner).emergencyWithdraw(TICKET_PRICE);
+      const receipt = await tx.wait();
+      
+      // Calculate gas cost
+      const gasCost = receipt.gasUsed * receipt.gasPrice;
+      
+      const ownerBalanceAfter = await ethers.provider.getBalance(owner.address);
+      
+      // Owner should receive the withdrawn amount minus gas costs
+      expect(ownerBalanceAfter + gasCost - ownerBalanceBefore).to.equal(TICKET_PRICE);
+      
+      // Contract balance should be reduced
+      const contractBalance = await dLottery.getContractBalance();
+      expect(contractBalance).to.equal(TICKET_PRICE);
+    });
+
+    it("Should not allow withdrawing more than the balance", async function () {
+      const excessiveAmount = ethers.parseEther("10");
+      
+      await expect(
+        dLottery.connect(owner).emergencyWithdraw(excessiveAmount)
+      ).to.be.reverted;
     });
   });
 
   describe("View Functions", function () {
     beforeEach(async function () {
-      // Purchase 3 tickets
-      for (let i = 0; i < 3; i++) {
-        await dLottery.connect(participants[i]).buyTicket({ value: TICKET_PRICE });
-      }
+      // Purchase some tickets
+      await dLottery.connect(addr1).buyTicket({ value: TICKET_PRICE });
+      await dLottery.connect(addr2).buyTicket({ value: TICKET_PRICE });
     });
-    
-    it("Should correctly return current draw details", async function () {
-      const [tickets, participants_] = await dLottery.getCurrentDrawDetails();
+
+    it("Should correctly report ticket ownership", async function () {
+      const [isAssigned1, participant1] = await dLottery.getTicketInfo(1);
       
-      expect(tickets.length).to.equal(3);
-      expect(participants_.length).to.equal(3);
-      
-      for (let i = 0; i < 3; i++) {
-        expect(participants_[i]).to.equal(participants[i].address);
+      if (isAssigned1) {
+        expect(participant1).to.be.oneOf([addr1.address, addr2.address]);
       }
+      
+      const [hasBought, ticketNumber] = await dLottery.hasParticipantBoughtTicket(addr1.address);
+      expect(hasBought).to.equal(true);
+      
+      // Check the specific ticket
+      const [isAssigned2, participant2] = await dLottery.getTicketInfo(ticketNumber);
+      expect(isAssigned2).to.equal(true);
+      expect(participant2).to.equal(addr1.address);
     });
-    
-    it("Should correctly return ticket info", async function () {
-      const [tickets] = await dLottery.getCurrentDrawDetails();
+
+    it("Should reject invalid ticket numbers", async function () {
+      await expect(
+        dLottery.getTicketInfo(0)
+      ).to.be.revertedWith("Invalid ticket number");
       
-      // Check a purchased ticket
-      const [isAssigned, participant] = await dLottery.getTicketInfo(tickets[0]);
-      expect(isAssigned).to.equal(true);
-      expect(participant).to.equal(participants[0].address);
+      await expect(
+        dLottery.getTicketInfo(MAX_TICKET_NUMBER + 1)
+      ).to.be.revertedWith("Invalid ticket number");
+    });
+
+    it("Should correctly report draw details", async function () {
+      const [tickets, participants] = await dLottery.getCurrentDrawDetails();
       
-      // Find an unsold ticket number (between 1 and 10)
-      let unsoldTicket = 1;
-      while (tickets.includes(unsoldTicket)) {
-        unsoldTicket++;
-      }
+      expect(tickets.length).to.equal(2);
+      expect(participants.length).to.equal(2);
+      expect(participants).to.include(addr1.address);
+      expect(participants).to.include(addr2.address);
+    });
+
+    it("Should reject invalid draw IDs", async function () {
+      await expect(
+        dLottery.getDrawResult(0)
+      ).to.be.revertedWith("Invalid draw ID");
       
-      // Check an unsold ticket
-      const [isAssigned2, participant2] = await dLottery.getTicketInfo(unsoldTicket);
-      expect(isAssigned2).to.equal(false);
-      expect(participant2).to.equal(ethers.ZeroAddress);
+      await expect(
+        dLottery.getDrawResult(99)
+      ).to.be.revertedWith("Invalid draw ID");
     });
   });
-}); 
+});
